@@ -141,13 +141,31 @@ export class UserController {
     @param.path.string('email') email: string,
     @requestBody() user: User,
   ): Promise<void> {
-    const users = await this.userRepository.find({ where : { email : email}});
-    users[0].name = user.name;
-    users[0].lastName = user.lastName;
-    users[0].email = user.email;
-    users[0].role = user.role;
-    users[0].status = user.status;
-    await this.userRepository.updateById(users[0].id, users[0]);
+    if (user.email != email) {
+      const userNewEmail = await this.userRepository.find({ where : { email : email}});
+      if (userNewEmail.length == 0) {
+        const users = await this.userRepository.find({ where : { email : user.email}});
+        users[0].name = user.name;
+        users[0].lastName = user.lastName;
+        users[0].email = email;
+        users[0].nickname = user.nickname;
+        await this.userRepository.updateById(users[0].id, users[0]); 
+        const previousCredentials = await this.userCredentialsRepository.find({where: {userId: email}});
+        previousCredentials[0].userId = email;
+        await this.userCredentialsRepository.updateById(previousCredentials[0].id, previousCredentials[0]);
+      } else {
+        throw new HttpErrors.Unauthorized("El email ya se encuentra registrado");    
+      }
+    } else {
+      const users = await this.userRepository.find({ where : { email : user.email}});
+      users[0].name = user.name;
+      users[0].lastName = user.lastName;
+      users[0].email = email;
+      users[0].role = user.role;
+      users[0].status = user.status;
+      await this.userRepository.updateById(users[0].id, users[0]);
+    }
+    
   }
 
   @get('/users/current', {
@@ -227,10 +245,11 @@ export class UserController {
           slug: role.slug,
           name: role.title
         },
+        score: user.score,
         token: token
       };
     }
-    throw new HttpErrors.Unauthorized("Usuario no registrado, favor contacte al administrador");    
+    throw new HttpErrors.Unauthorized("Usuario no registrado");    
   }
   @post('/users/regist', {
     responses: {
@@ -244,42 +263,43 @@ export class UserController {
     //user: User,
     @requestBody(RegisterRequestBody) credentials: RegisterCredentials,
   ): Promise<any> {
-    try {
       const users = await this.userRepository.find( { where : { email : credentials.email }});
+      const userNickname = await this.userRepository.find( { where : { nickname : credentials.nickname }});
       if (users.length == 0) {
-        const previousCredentials = await this.userCredentialsRepository.find({where: {userId: credentials.email}});
-        if (previousCredentials.length > 0) {
-          await this.userCredentialsRepository.deleteById(previousCredentials[0].id);
+        if (userNickname.length == 0) {
+          const previousCredentials = await this.userCredentialsRepository.find({where: {userId: credentials.email}});
+          if (previousCredentials.length > 0) {
+            await this.userCredentialsRepository.deleteById(previousCredentials[0].id);
+          }
+          // encrypt the password
+          const password = await this.passwordHasher.hashPassword(
+            credentials.password,
+          );
+          // Crear user
+          var user = new User;
+          var userCredentials = new UserCredentials;
+          user.email = credentials.email;
+          user.nickname = credentials.nickname;
+          user.name = credentials.name;
+          user.lastName = credentials.lastName;
+          user.role = credentials.role;
+          user.failedAttempts = 0;
+          user.status = 1;
+          user.score = 0;
+          var newUser = await this.userRepository.create(user);
+          // Crear credenciales de user
+          userCredentials.userId = newUser.email;
+          userCredentials.password = password;
+          await this.userCredentialsRepository.create(userCredentials);
+          // Registro de creacion de usuario y credenciales
+          await this.auditActionsRepository.create(registerAuditAction(newUser.id, "Creacion de Usuario y credenciales"));
+          return true;
+        } else {
+          throw new HttpErrors.Conflict('El Apodo ya se encuentra registrado, debe ingresar otro');
         }
-        // encrypt the password
-        const password = await this.passwordHasher.hashPassword(
-          credentials.password,
-        );
-        // Crear user
-        var user = new User;
-        var userCredentials = new UserCredentials;
-        user.email = credentials.email;
-        user.nickname = credentials.nickname;
-        user.name = credentials.name;
-        user.lastName = credentials.lastName;
-        user.role = credentials.role;
-        user.failedAttempts = 0;
-        user.status = 1;
-        var newUser = await this.userRepository.create(user);
-        // Crear credenciales de user
-        userCredentials.userId = newUser.email;
-        userCredentials.password = password;
-        var newUserCredentials = await this.userCredentialsRepository.create(userCredentials);
-        // Registro de creacion de usuario y credenciales
-        await this.auditActionsRepository.create(registerAuditAction(newUser.id, "Creacion de Usuario y credenciales"));
-        return true;
       } else {
-        throw new HttpErrors.Conflict('errors.unathorized');
+        throw new HttpErrors.Conflict('El Email ya se encuentra registrado, debe ingresar otro');
       }
-    } catch (ex) {
-      console.log(ex);
-      throw new HttpErrors.Conflict('sign-in.dntexist');
-    }
     
   }
 

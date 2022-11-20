@@ -54,6 +54,13 @@ export class User extends TimestampEntity {
   })
   failedAttempts: number;
 
+  @property({
+    type: 'number',
+    required: true,
+    default: 0
+  })
+  score: number;
+
   @hasOne(() => UserCredentials)
   userCredentials: UserCredentials;
 
