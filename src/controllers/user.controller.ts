@@ -140,32 +140,71 @@ export class UserController {
   async replaceById(
     @param.path.string('email') email: string,
     @requestBody() user: User,
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (user.email != email) {
       const userNewEmail = await this.userRepository.find({ where : { email : email}});
       if (userNewEmail.length == 0) {
+        console.log(userNewEmail[0].nickname);
+        console.log(user.nickname);
+        if (userNewEmail[0].nickname != user.nickname) {
+          const userNewNickname = await this.userRepository.find({ where : { nickname : user.nickname}});
+          if (userNewNickname.length == 0) {
+            const users = await this.userRepository.find({ where : { email : user.email}});
+            users[0].name = user.name;
+            users[0].lastName = user.lastName;
+            users[0].email = email;
+            users[0].nickname = user.nickname;
+            await this.userRepository.updateById(users[0].id, users[0]); 
+            const previousCredentials = await this.userCredentialsRepository.find({where: {userId: email}});
+            previousCredentials[0].userId = email;
+            await this.userCredentialsRepository.updateById(previousCredentials[0].id, previousCredentials[0]); 
+            return true; 
+          } else {
+            throw new HttpErrors.Unauthorized("El Apodo ya se encuentra registrado");      
+          }
+        } else {
+          const users = await this.userRepository.find({ where : { email : user.email}});
+          users[0].name = user.name;
+          users[0].lastName = user.lastName;
+          users[0].email = email;
+          users[0].nickname = user.nickname;
+          await this.userRepository.updateById(users[0].id, users[0]); 
+          const previousCredentials = await this.userCredentialsRepository.find({where: {userId: email}});
+          previousCredentials[0].userId = email;
+          await this.userCredentialsRepository.updateById(previousCredentials[0].id, previousCredentials[0]);
+          return true;
+        }
+      } else {
+        throw new HttpErrors.Unauthorized("El Email ya se encuentra registrado");    
+      }
+    } else {
+      const userNewEmail = await this.userRepository.find({ where : { email : email}});
+      if (userNewEmail[0].nickname != user.nickname) {
+        const userNewNickname = await this.userRepository.find({ where : { nickname : user.nickname}});
+        if (userNewNickname.length == 0) {
+          const users = await this.userRepository.find({ where : { email : user.email}});
+          users[0].name = user.name;
+          users[0].lastName = user.lastName;
+          users[0].email = email;
+          users[0].nickname = user.nickname;
+          await this.userRepository.updateById(users[0].id, users[0]);
+          return true; 
+        } else {
+          throw new HttpErrors.Unauthorized("El Apodo ya se encuentra registrado");      
+        }    
+
+      } else {
         const users = await this.userRepository.find({ where : { email : user.email}});
         users[0].name = user.name;
         users[0].lastName = user.lastName;
         users[0].email = email;
-        users[0].nickname = user.nickname;
-        await this.userRepository.updateById(users[0].id, users[0]); 
-        const previousCredentials = await this.userCredentialsRepository.find({where: {userId: email}});
-        previousCredentials[0].userId = email;
-        await this.userCredentialsRepository.updateById(previousCredentials[0].id, previousCredentials[0]);
-      } else {
-        throw new HttpErrors.Unauthorized("El email ya se encuentra registrado");    
+        users[0].role = user.role;
+        users[0].status = user.status;
+        await this.userRepository.updateById(users[0].id, users[0]);
+        return true;
       }
-    } else {
-      const users = await this.userRepository.find({ where : { email : user.email}});
-      users[0].name = user.name;
-      users[0].lastName = user.lastName;
-      users[0].email = email;
-      users[0].role = user.role;
-      users[0].status = user.status;
-      await this.userRepository.updateById(users[0].id, users[0]);
     }
-    
+    return false;
   }
 
   @get('/users/current', {
