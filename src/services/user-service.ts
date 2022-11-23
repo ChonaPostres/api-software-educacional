@@ -57,13 +57,13 @@ export class MyUserService implements UserService<User, Credentials> {
             await this.userRepository.updateById(foundUser.id, {failedAttempts: failedAttempts})
             await this.auditAuthenticationRepository.create(registerAuditAuth(foundUser.id, 0));
             let attempts = 3 - failedAttempts;
-            throw new HttpErrors.Unauthorized("sign-in.fail|" + attempts.toString());
+            throw new HttpErrors.Unauthorized("Contraseña incorrecta, le queda " + attempts.toString() + ' intentos');
           } else {
             /** Bloqued User */
 
             await this.userRepository.updateById(foundUser.id, {status: 2, failedAttempts: 3})
             await this.auditActionsRepository.create(registerAuditAction(foundUser.id, "Cuenta bloqueada por intentos falladios"));
-            throw new HttpErrors.Unauthorized("sign-in.bloqued_attemps");
+            throw new HttpErrors.Unauthorized("Cuenta bloqueada por intentos falladios");
           }
         } else {
           await this.userRepository.updateById(foundUser.id, {failedAttempts: 0})

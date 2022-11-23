@@ -110,6 +110,27 @@ export class UserController {
     return this.userRepository.find(filter);
   }
 
+  @get('/users/gamers', {
+    responses: {
+      '200': {
+        description: 'Array of User model instances',
+        content: {
+          'application/json': {
+            schema: {
+              type: 'array',
+              items: getModelSchemaRef(User, {includeRelations: false}),
+            },
+          },
+        },
+      },
+    },
+  })
+  @authenticate('jwt')
+  async findGamers(
+  ): Promise<User[]> {
+    return this.userRepository.find({where: {role: "jugador"}});
+  }
+
   @get('/users/{email}', {
     responses: {
       '200': {
@@ -240,10 +261,12 @@ export class UserController {
           slug: role.slug,
           name: role.title
         },
-        privilege: role.privilege      
+        privilege: role.privilege,
+        status: user.status,
+        score: user.score      
       };
     }
-    throw new HttpErrors.Unauthorized("Usuario no registrado, favor contacte al administrador");    
+    throw new HttpErrors.Unauthorized("Usuario no registrado");    
   }
 
   @post('/users/authentication', {
