@@ -425,6 +425,8 @@ export class UserController {
   async deleteById(@param.path.string('email') email: string): Promise<void> {
     const users = await this.userRepository.find({ where : { email : email}});
     await this.userRepository.deleteById(users[0].id);
+    const userCredentials = await this.userCredentialsRepository.find({ where: { userId: email}});
+    await this.userCredentialsRepository.deleteById(userCredentials[0].id);
   }
 
   private async findRoleSlugOrId(id: string): Promise<Role> {
